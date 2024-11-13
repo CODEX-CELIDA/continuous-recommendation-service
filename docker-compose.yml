@@ -2,6 +2,7 @@ version: '2.1' # '2.21'
 
 services:
   recommendation-server:
+    #build: recommendation-server
     image: celida/recommendation-server
     environment:
       GH_REPOSITORY: https://github.com/CODEX-CELIDA/celida-recommendations
