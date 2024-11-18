@@ -6,9 +6,9 @@ This project provides a group of Docker services which periodically apply comput
 
 2. In response to some trigger, the execution-engine service of this project scans the database for records to which the defined recommendations are applicable and creates suitable output records in a different section of the database. The trigger can be either:
    
-  1. The database scan of the execution-engine is started on a regular basis, such as every five minutes.
+   1. The database scan of the execution-engine is started on a regular basis, such as every five minutes.
      
-  2. The data source component mentioned above or some other component notifies the execution-engine via an HTTP request of new records in the database.
+   2. The data source component mentioned above or some other component notifies the execution-engine via an HTTP request of new records in the database.
 
 3. A user-interface component retrieves (TODO on the fly or on a regular basis) the created records and presents them to users.
 
