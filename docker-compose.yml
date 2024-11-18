@@ -27,3 +27,5 @@ services:
     depends_on:
       recommendation-server:
         condition: service_healthy
+    ports:
+      - "12345:12345" # trigger execution runs via arbitrary POST request
