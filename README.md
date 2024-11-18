@@ -13,3 +13,13 @@ This project provides a group of Docker services which periodically apply comput
 3. A user-interface component retrieves (TODO on the fly or on a regular basis) the created records and presents them to users.
 
 The database itself, the patient data source component and the user-interface component are outside of the scope of this project and must be set up separately.
+
+## Usage
+
+1. Adapt database connectivity settings in `docker-compose.yml`
+
+2. Start the services with `docker-compose up`
+
+3. Trigger recommendation processing with the equivalent of `curl -d '' http://localhost:12345`
+
+4. Retrieve recommentation results from the `result_interval` and `execution_run` tables of the configured result schema of the database (typically `celida`)
