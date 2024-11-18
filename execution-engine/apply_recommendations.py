@@ -22,7 +22,7 @@ Attributes:
 
 Example:
     This script can be executed directly from the command line:
-    $ python execute.py
+    $ python apply_recommendations.py
 
 Note:
     - This script assumes the presence of the 'execution_engine' package and its ExecutionEngine class.
@@ -33,6 +33,8 @@ Note:
     - The execution_engine package expects a couple of environment variables to be set (see README.md).
 """
 
+from typing import List
+from urllib.parse import quote
 import schedule
 import time
 import logging
@@ -40,11 +42,12 @@ import os
 import re
 import sys
 import pendulum
+from sqlalchemy import text
+import sqlalchemy
 
 current_dir = os.path.dirname(__file__)
 sys.path.insert(0, current_dir)
 
-from execution_engine.execution_engine import ExecutionEngine
 from execution_engine.settings import get_config, update_config
 
 logging.getLogger().setLevel(logging.INFO)
@@ -71,6 +74,66 @@ urls = [
     "covid19-inpatient-therapy/recommendation/covid19-abdominal-positioning-ards",
 ]
 
+# Since we are going to redirect the result schema to a temporary one,
+# first make sure the actual result schema exists and is populated
+# with recommendations, etc.
+def ensure_database_exists():
+    config = get_config().omop
+    logging.info(f"Checking whether schema {result_schema} in database {config.database} exists")
+    connection_string = f"postgresql+psycopg://{quote(config.user)}:{quote(config.password)}@{config.host}:{config.port}/{config.database}"
+    engine = sqlalchemy.create_engine(
+        connection_string,
+        connect_args={"options": "-csearch_path={}".format(config.db_data_schema)},
+        future=True,
+    )
+    schema_exists = None
+    with engine.begin() as connection:
+        # Check whether the configured result schema exists in the
+        # specified database.
+        schema_exists = (
+            connection.execute(
+                text(
+                    "SELECT count(*) FROM information_schema.schemata WHERE schema_name = :schema_name;"
+                ),
+                {"schema_name": result_schema},
+            ).fetchone()[0] > 0
+        )
+        # If the schema does not exist, import appropriate packages to
+        # force the creation of the schema.
+        if schema_exists:
+            logging.info("Schema exists")
+        else:
+            logging.warning(f"Schema {result_schema} in database {config.database} does not exist. Creating it now")
+            # Instantiate the execution engine to ensure the result
+            # schema is created.
+            from execution_engine.execution_engine import ExecutionEngine
+            engine = ExecutionEngine()
+            logging.info("Loading recommendations")
+            for recommendation_url in urls:
+                engine.load_recommendation(
+                        base_url + recommendation_url,
+                        recommendation_package_version=recommendation_package_version
+                )
+            # Reset interpreter state by re-executing everything. This is
+            # necessary because at this point in the original process, the
+            # packages of the execution-engine have already been imported with
+            # the "wrong" schema and the schema cannot be changed after that
+            # as far as I (jmoringe) can tell.
+            logging.warning(f"Re-executing to reset database meta-data: {sys.executable} {sys.argv}")
+            os.execv(sys.executable, [sys.executable] + sys.argv)
+ensure_database_exists()
+
+# When we reach this point, we know that the result schema exists and
+# contains the required data. We "switch" to a temporary schema before
+# we import or instantiate anything related to the database. After
+# this point, the ORM and engine will work only with the temporary
+# schema.
+temp_schema = 'temp'
+get_config().omop.db_result_schema = temp_schema
+
+from execution_engine.clients import omopdb
+from execution_engine.execution_engine import ExecutionEngine
+
 start_datetime = pendulum.parse("2024-10-01 00:00:00+01:00")
 
 engine = ExecutionEngine()
@@ -84,7 +147,8 @@ def load_recommendations():
             force_reload=True # HACK(jmoringe): until restoring from database is fixed
     ) for recommendation_url in urls ]
 
-recommendations = load_recommendations()
+recommendations = [] # load_recommendations() TODO: use this to load only once
+
 
 def apply_recommendations():
     # HACK(jmoringe): until restoring from database is fixed
@@ -92,15 +156,64 @@ def apply_recommendations():
 
     end_datetime = pendulum.now()
     logging.info(f"Applying recommendations for period {start_datetime} - {end_datetime}")
-    for recommendation in recommendations:
-        logging.info(f"  Applying {recommendation}")
-        engine.execute(recommendation, start_datetime=start_datetime, end_datetime=end_datetime)
 
-# Schedule for execution at regular intervals.
-schedule.every(5).minutes.do(apply_recommendations)
-# Force the initial run (would otherwise happen up to one full interval later).
-apply_recommendations()
-while schedule.next_run():
-    logging.info(f"Next run at {schedule.next_run()}")
-    schedule.run_pending()
-    time.sleep(30)
+    # Tables which must be copied from the temporary schema to the
+    # result schema after the execution engine finishes.
+    tables = ['execution_run', 'result_interval']
+
+    # Clear the temporary schema before starting the execution engine
+    # run. Note: we could probalby reset counters here as well if we
+    # wanted to reset the ids for execution_runs and result_intervals.
+    with omopdb.begin() as con:
+        con.execute(text('\n'.join(f"TRUNCATE TABLE {temp_schema}.{table} CASCADE;"
+                                   for table in tables)))
+    # Run the execution engine. Results go into the temporary schema.
+    for recommendation in recommendations:
+        engine.execute(recommendation, start_datetime=start_datetime, end_datetime=end_datetime)
+    # Try to atomically transfer the results from the temporary schema
+    # to the result schema by locking the tables in the result schema,
+    # truncating those tables and copying the rows from the temporary
+    # schema in a single transaction.
+    # TODO(jmoringe): no longer | We also truncate the tables in
+    # the temporary schema but that step is not essential.
+    logging.info(f"Transferring data from temporary schema {temp_schema} to result schema {result_schema}")
+    with omopdb.begin() as con:
+        con.execute(text('\n'.join(f"LOCK TABLE {result_schema}.{table} IN ACCESS EXCLUSIVE MODE;"
+                                   for table in tables)
+                         + '\n'.join(f"TRUNCATE TABLE {result_schema}.{table} CASCADE;"
+                                     for table in tables)
+                         + '\n'.join(f"INSERT INTO {result_schema}.{table} SELECT * FROM {temp_schema}.{table};"
+                                     for table in tables)
+                         #+ '\n'.join(f"TRUNCATE TABLE {temp_schema}.{table} CASCADE;"
+                         #            for table in tables)
+                         ))
+    logging.info(f"Transfer finished")
+
+def run_with_time_based_trigger():
+    # Schedule for execution at regular intervals.
+    schedule.every(5).minutes.do(apply_recommendations)
+    # Force the initial run (would otherwise happen up to one full interval later).
+    apply_recommendations()
+    while schedule.next_run():
+        logging.info(f"Next run at {schedule.next_run()}")
+        schedule.run_pending()
+        time.sleep(30)
+
+def run_with_http_trigger():
+    from http.server import BaseHTTPRequestHandler, HTTPServer
+
+    class TriggerHandler(BaseHTTPRequestHandler):
+        def do_POST(self):
+            logging.info(F"Got POST request")
+            self.send_response(200)
+            self.send_header('Content-type', 'text/plain')
+            self.end_headers()
+            self.wfile.write("Applying recommendations\n".encode('utf-8'))
+            apply_recommendations()
+    server = HTTPServer(('localhost', 12345), TriggerHandler)
+    server.serve_forever()
+    server.server_close()
+
+# TODO(jmoringe): make this selectable via commandline options?
+# run_with_time_based_trigger()
+run_with_http_trigger()
