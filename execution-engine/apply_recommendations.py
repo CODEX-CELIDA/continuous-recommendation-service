@@ -56,6 +56,7 @@ from urllib.parse import quote
 import pendulum
 import schedule
 import sqlalchemy
+from config import Settings, TriggerMethod
 from sqlalchemy import text
 
 current_dir = os.path.dirname(__file__)
@@ -270,12 +271,12 @@ def apply_recommendations():
     logging.info("Transfer finished")
 
 
-def run_with_time_based_trigger():
+def run_with_time_based_trigger(interval: pendulum.Duration):
     """
     Periodically run apply_recommendations.
     """
     # Schedule for execution at regular intervals.
-    schedule.every(5).minutes.do(apply_recommendations)
+    schedule.every(interval.in_seconds).seconds.do(apply_recommendations)
     # Force the initial run (would otherwise happen up to one full interval later).
     apply_recommendations()
     while schedule.next_run():
@@ -284,8 +285,9 @@ def run_with_time_based_trigger():
         time.sleep(30)
 
 
-def run_with_http_trigger():
-    """Run apply_recommendations whenever an external trigger in the
+def run_with_http_trigger(address: str, port: int):
+    """
+    Run apply_recommendations whenever an external trigger in the
     form of an HTTP POST request occurs.
     """
     from http.server import BaseHTTPRequestHandler, HTTPServer
@@ -299,11 +301,18 @@ def run_with_http_trigger():
             self.wfile.write("Applying recommendations\n".encode("utf-8"))
             apply_recommendations()
 
-    server = HTTPServer(("localhost", 12345), TriggerHandler)
+    server = HTTPServer((address, port), TriggerHandler)
+    logging.info(f"Waiting for POST requests on {address}:{port}")
     server.serve_forever()
     server.server_close()
 
 
-# TODO(jmoringe): make this selectable via commandline options?
-# run_with_time_based_trigger()
-run_with_http_trigger()
+settings = Settings()
+if settings.trigger_method == TriggerMethod.timer:
+    run_with_time_based_trigger(settings.trigger_run_interval)
+elif settings.trigger_method == TriggerMethod.http_request:
+    run_with_http_trigger(
+        settings.trigger_http_address.ip.compressed, settings.trigger_http_port
+    )
+else:
+    assert False  # unreachable
