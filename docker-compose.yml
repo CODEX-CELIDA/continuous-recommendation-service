@@ -24,6 +24,8 @@ services:
         POSTGRES_USER: postgres
         POSTGRES_PASSWORD: yourpassword
         POSTGRES_DB: ohdsi
+
+        HTTP_TRIGGER_PORT: '12345'
     depends_on:
       recommendation-server:
         condition: service_healthy
