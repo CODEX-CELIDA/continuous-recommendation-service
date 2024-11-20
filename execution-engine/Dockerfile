@@ -8,8 +8,7 @@ RUN useradd -m user
 USER user
 WORKDIR /home/user
 
-COPY --chown=user execution-engine execution-engine
-# RUN git clone https://github.com/codex-celida/execution-engine
+RUN git clone https://github.com/codex-celida/execution-engine
 
 RUN git clone https://github.com/DigiPOD/ee-addons.git
 
