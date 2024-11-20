@@ -225,11 +225,12 @@ def apply_recommendations():
     with omopdb.begin() as connection:
         for table in tables:
             connection.execute(
-                text(
-                    "TRUNCATE TABLE :table CASCADE;",
-                    {"table": f"{temp_schema}.{table}"},
-                )
-            )
+                text(f"TRUNCATE TABLE {temp_schema}.{table} CASCADE;")
+            )  # nosec
+            # TODO(jmoringe): is the following really not possible?
+            # connection.execute(
+            #    text("TRUNCATE TABLE :table CASCADE;"),
+            #    {"table": f"{temp_schema}.{table}"})
     # Run the execution engine. Results go into the temporary schema.
     for recommendation in recommendations:
         engine.execute(
@@ -246,28 +247,32 @@ def apply_recommendations():
     with omopdb.begin() as connection:
         for table in tables:
             connection.execute(
-                text(
-                    "LOCK TABLE :table IN ACCESS EXCLUSIVE MODE;",
-                    {"table": f"{result_schema}.{table}"},
-                )
-            )
+                text(f"LOCK TABLE {result_schema}.{table} IN ACCESS EXCLUSIVE MODE;")
+            )  # nosec
+            # TODO(jmoringe): is the following really not possible?
+            # connection.execute(
+            #    text("LOCK TABLE :table IN ACCESS EXCLUSIVE MODE;"),
+            #    {"table": f"{result_schema}.{table}"})
+        for table in tables:
+            connection.execute(
+                text(f"TRUNCATE TABLE {result_schema}.{table} CASCADE;")
+            )  # nosec
+            # connection.execute(
+            #    text("TRUNCATE TABLE :table CASCADE;"),
+            #    {"table": f"{result_schema}.{table}"})
         for table in tables:
             connection.execute(
                 text(
-                    "TRUNCATE TABLE :table CASCADE;",
-                    {"table": f"{result_schema}.{table}"},
+                    f"INSERT INTO {result_schema}.{table}"  # nosec
+                    f" SELECT * FROM {temp_schema}.{table};"  # nosec
                 )
             )
-        for table in tables:
-            connection.execute(
-                text(
-                    "INSERT INTO :result_table SELECT * FROM :temp_table;",
-                    {
-                        "result_table": f"{result_schema}.{table}",
-                        "temp_table": f"{temp_schema}.{table}",
-                    },
-                )
-            )
+            # connection.execute(
+            #    text("INSERT INTO :result_table SELECT * FROM :temp_table;"),
+            #        {
+            #            "result_table": f"{result_schema}.{table}",
+            #            "temp_table": f"{temp_schema}.{table}",
+            #        })
     logging.info("Transfer finished")
 
 
@@ -277,7 +282,8 @@ def run_with_time_based_trigger(interval: pendulum.Duration):
     """
     # Schedule for execution at regular intervals.
     schedule.every(interval.in_seconds).seconds.do(apply_recommendations)
-    # Force the initial run (would otherwise happen up to one full interval later).
+    # Force the initial run (would otherwise happen up to one full
+    # interval later).
     apply_recommendations()
     while schedule.next_run():
         logging.info(f"Next run at {schedule.next_run()}")
