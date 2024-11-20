@@ -25,9 +25,9 @@ services:
         POSTGRES_PASSWORD: yourpassword
         POSTGRES_DB: ohdsi
 
-        HTTP_TRIGGER_PORT: '12345'
+        TRIGGER_HTTP_PORT: '55555'
     depends_on:
       recommendation-server:
         condition: service_healthy
     ports:
-      - "12345:12345" # trigger execution runs via arbitrary POST request
+      - "55555:55555" # trigger execution run via arbitrary POST request
