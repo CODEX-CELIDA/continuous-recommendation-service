@@ -11,6 +11,8 @@ WORKDIR /home/user
 COPY --chown=user execution-engine execution-engine
 # RUN git clone https://github.com/codex-celida/execution-engine
 
+RUN git clone https://github.com/DigiPOD/ee-addons.git
+
 FROM debian:stable
 
 ARG FHIR_BASE_URL
@@ -30,6 +32,12 @@ RUN apt-get update --assume-yes                                \
 
 RUN useradd -m user
 
+COPY --from=stage --chown=user /home/user/ee-addons/__init__.py             /home/user/apply-recommendations/digipod/
+COPY --from=stage --chown=user /home/user/ee-addons/concepts.py             /home/user/apply-recommendations/digipod/
+COPY --from=stage --chown=user /home/user/ee-addons/criterion               /home/user/apply-recommendations/digipod/criterion
+COPY --from=stage --chown=user /home/user/ee-addons/recommendation          /home/user/apply-recommendations/digipod/recommendation
+COPY --from=stage --chown=user /home/user/ee-addons/terminology             /home/user/apply-recommendations/digipod/terminology
+
 COPY --from=stage --chown=user /home/user/execution-engine/requirements.txt /home/user/apply-recommendations/
 COPY --from=stage --chown=user /home/user/execution-engine/setup.py         /home/user/apply-recommendations/
 COPY --from=stage --chown=user /home/user/execution-engine/execution_engine /home/user/apply-recommendations/execution_engine
@@ -38,11 +46,11 @@ COPY              --chown=user config.py                                    /hom
 
 USER user
 
-RUN python3 -m venv ${HOME}/apply-recommendations/venv
+RUN python3 -m venv ${HOME}/venv
 RUN echo "pydantic-extra-types==2.10.0" >> ${HOME}/apply-recommendations/requirements.txt
-RUN ${HOME}/apply-recommendations/venv/bin/pip install -r ${HOME}/apply-recommendations/requirements.txt
-RUN ${HOME}/apply-recommendations/venv/bin/pip install schedule
-RUN cd ${HOME}/apply-recommendations && ${HOME}/apply-recommendations/venv/bin/python setup.py build_ext --inplace
+RUN ${HOME}/venv/bin/pip install -r ${HOME}/apply-recommendations/requirements.txt
+RUN ${HOME}/venv/bin/pip install schedule
+RUN cd ${HOME}/apply-recommendations && ${HOME}/venv/bin/python setup.py build_ext --inplace
 
 ENV CELIDA_EE_FHIR_BASE_URL=${FHIR_BASE_URL}
 ENV CELIDA_EE_FHIR_TERMINOLOGY_SERVER_URL=http://tx.fhir.org/r4
@@ -64,4 +72,4 @@ ENV CELIDA_EE_MULTIPROCESSING_POOL_SIZE=-1
 ENV APPLY_RECOMMENDATIONS_TRIGGER_HTTP_ADDRESS=0.0.0.0
 ENV APPLY_RECOMMENDATIONS_TRIGGER_HTTP_PORT=${TRIGGER_HTTP_PORT}
 
-CMD "${HOME}/apply-recommendations/venv/bin/python" "${HOME}/apply-recommendations/apply_recommendations.py"
+CMD "${HOME}/venv/bin/python" "${HOME}/apply-recommendations/apply_recommendations.py"

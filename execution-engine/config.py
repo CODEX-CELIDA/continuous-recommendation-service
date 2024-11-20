@@ -6,6 +6,15 @@ from pydantic_extra_types.pendulum_dt import Duration
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
+class RecommendationSet(str, Enum):
+    """
+    The supported recommendation sets.
+    """
+
+    digipod = "digipod"
+    celida = "celida"
+
+
 class TriggerMethod(str, Enum):
     """
     The possible methods for triggering the application of
@@ -25,6 +34,10 @@ class Settings(BaseSettings):
         cli_parse_args=True, env_prefix="apply_recommendations_"
     )
 
+    # Which recommendation set to apply
+    recommandetation_set: RecommendationSet = RecommendationSet.digipod
+
+    # Trigger configuration
     trigger_method: TriggerMethod = TriggerMethod.http_request
     # Time-based trigger
     trigger_run_interval: Duration = Duration(minutes=5)
