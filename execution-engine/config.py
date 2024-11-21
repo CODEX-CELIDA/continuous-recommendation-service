@@ -1,8 +1,9 @@
 from enum import Enum
 from ipaddress import IPv4Interface
 
+import pendulum
 from pydantic import Field, IPvAnyInterface
-from pydantic_extra_types.pendulum_dt import Duration
+from pydantic_extra_types.pendulum_dt import DateTime, Duration
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -36,6 +37,10 @@ class Settings(BaseSettings):
 
     # Which recommendation set to apply
     recommandetation_set: RecommendationSet = RecommendationSet.digipod
+
+    # Start time
+    start_time: DateTime = pendulum.parse("2024-06-01 00:00:00+01:00")
+    # DateTime('2024-06-01')
 
     # Trigger configuration
     trigger_method: TriggerMethod = TriggerMethod.http_request

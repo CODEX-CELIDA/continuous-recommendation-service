@@ -236,9 +236,6 @@ get_config().omop.db_result_schema = temp_schema
 from execution_engine.clients import omopdb  # noqa
 from execution_engine.execution_engine import ExecutionEngine  # noqa
 
-# TODO(jmoringe): this should probably be a configuration option
-start_datetime = pendulum.parse("2024-10-01 00:00:00+01:00")
-
 engine = ExecutionEngine()
 
 
@@ -259,6 +256,7 @@ def apply_recommendations():
     # HACK(jmoringe): until restoring from database is fixed
     recommendations = load_recommendations(engine)
 
+    start_datetime = settings.start_time
     end_datetime = pendulum.now()
     logging.info(
         f"Applying recommendations for period {start_datetime} - {end_datetime}"

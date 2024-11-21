@@ -25,6 +25,8 @@ services:
         POSTGRES_PASSWORD: yourpassword
         POSTGRES_DB: ohdsi
 
+        START_TIME: '2024-06-01'
+
         TRIGGER_HTTP_PORT: '55555'
     depends_on:
       recommendation-server:
