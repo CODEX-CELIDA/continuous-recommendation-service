@@ -32,7 +32,9 @@ class Settings(BaseSettings):
     """
 
     model_config = SettingsConfigDict(
-        cli_parse_args=True, env_prefix="apply_recommendations_"
+        cli_parse_args=True,
+        env_prefix="apply_recommendations_",
+        env_file="apply_recommendations.env",
     )
 
     # Which recommendation set to apply
