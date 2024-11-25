@@ -36,7 +36,7 @@ class Settings(BaseSettings):
     )
 
     # Which recommendation set to apply
-    recommandetation_set: RecommendationSet = RecommendationSet.digipod
+    recommendation_set: RecommendationSet = RecommendationSet.digipod
 
     # Start time
     start_time: DateTime = pendulum.parse("2024-06-01 00:00:00+01:00")

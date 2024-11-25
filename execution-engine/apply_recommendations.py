@@ -152,9 +152,9 @@ def load_recommendations(engine: Any):
     from a recommendaion server or hardcoded DigiPOD recommendataions
     from the ee_addons package.
     """
-    if settings.recommandetation_set == RecommendationSet.celida:
+    if settings.recommendation_set == RecommendationSet.celida:
         return load_recommendations_for_celida(engine)
-    elif settings.recommandetation_set == RecommendationSet.digipod:
+    elif settings.recommendation_set == RecommendationSet.digipod:
         return load_recommendations_for_digipod(engine)
     else:
         assert False  # unreachable
