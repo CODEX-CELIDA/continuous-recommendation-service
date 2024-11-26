@@ -23,7 +23,13 @@ services:
       recommendation-server:
         condition: service_healthy
     volumes:
-      - ./apply_recommendations.env:/home/user/apply-recommendations/apply_recommendations.env:ro
-      - ./celida.env:/home/user/apply-recommendations/.env:ro
+      - type: bind
+        source: ./apply_recommendations.env
+        target: /home/user/apply-recommendations/apply_recommendations.env
+        read_only: true
+      - type: bind
+        source: ./celida.env
+        target: /home/user/apply-recommendations/.env
+        read_only: true
     ports:
       - "55555:55555" # trigger execution run via arbitrary POST request
