@@ -56,7 +56,7 @@ from urllib.parse import quote
 import pendulum
 import schedule
 import sqlalchemy
-from config import RecommendationSet, Settings, TriggerMethod
+from config import Settings, TriggerMethod
 from sqlalchemy import text
 
 current_dir = os.path.dirname(__file__)
@@ -76,88 +76,6 @@ result_schema = get_config().omop.db_result_schema
 # Validate the schema name to ensure it's safe to use in the query
 if not re.match(r"^[a-zA-Z_][a-zA-Z0-9_]*$", result_schema):
     raise ValueError(f"Invalid schema name: {result_schema}")
-
-base_url = "https://www.netzwerk-universitaetsmedizin.de/fhir/codex-celida/guideline/"
-recommendation_package_version = "v1.5.2"
-
-urls = [
-    "covid19-inpatient-therapy/recommendation/no-therapeutic-anticoagulation",
-    "sepsis/recommendation/ventilation-plan-ards-tidal-volume",
-    "covid19-inpatient-therapy/recommendation/ventilation-plan-ards-tidal-volume",
-    "covid19-inpatient-therapy/recommendation/covid19-ventilation-plan-peep",
-    "covid19-inpatient-therapy/recommendation/prophylactic-anticoagulation",
-    "covid19-inpatient-therapy/recommendation/therapeutic-anticoagulation",
-    "covid19-inpatient-therapy/recommendation/covid19-abdominal-positioning-ards",
-]
-
-
-def load_recommendations_for_celida(
-    engine: Any,  # The ExecutionEngine type is imported later
-):
-    """
-    Load the configured recommendations, either by retrieving them
-    from the recommendation server or by restoring the serialized
-    representations from the database.
-    """
-    logging.info(
-        f"Loading CELIDA recommendations with base URL {base_url}"
-        f"and version {recommendation_package_version}"
-    )
-    recommendations = [
-        engine.load_recommendation(
-            base_url + recommendation_url,
-            recommendation_package_version=recommendation_package_version,
-            force_reload=True,  # HACK(jmoringe): until restoring from database is fixed
-        )
-        for recommendation_url in urls
-    ]
-    logging.info(f"{len(recommendations)} recommendations loaded")
-    return recommendations
-
-
-# TODO(jmoringe): can we import the module earlier without triggering
-# the schema creation?
-def load_recommendations_for_digipod(
-    engine: Any,  # The ExecutionEngine type is imported later
-):
-    """
-    Load the (hardcoded) recommandetations for DigiPOD from the
-    digipod package.
-    """
-    logging.info("Loading DigiPOD recommendations")
-
-    from digipod.terminology.vocabulary import DigiPOD
-    from execution_engine.omop.vocabulary import standard_vocabulary
-
-    standard_vocabulary.register(DigiPOD)
-
-    import digipod.recommendation.recommendation_0_1 as r01
-    import digipod.recommendation.recommendation_0_2 as r02
-    import digipod.recommendation.recommendation_2_1 as r21
-
-    recommendations = [
-        r02.rec_0_2_Delirium_Screening,
-        r21.RecCollCheckRFAdultSurgicalPatientsPreoperatively,
-        r01.rec_0_1_Delirium_Screening,
-    ]
-    for recommendation in recommendations:
-        engine.register_recommendation(recommendation)
-    logging.info(f"{len(recommendations)} recommendations loaded")
-    return recommendations
-
-
-def load_recommendations(engine: Any):
-    """
-    Load recommendations into engine, either CELIDA recommandetation
-    from a recommendaion server or hardcoded DigiPOD recommendataions
-    from the ee_addons package.
-    """
-    if settings.recommendation_set == RecommendationSet.celida:
-        return load_recommendations_for_celida(engine)
-    elif settings.recommendation_set == RecommendationSet.digipod:
-        return load_recommendations_for_digipod(engine)
-    else:
-        assert False  # unreachable
 
 
 # Since we are going to redirect the result schema to a temporary one,
@@ -207,9 +125,9 @@ def ensure_database_exists():
             )
             # Instantiate the execution engine to ensure the result
             # schema is created.
-            from execution_engine.execution_engine import ExecutionEngine
+            from init import init_execution_engine, load_recommendations
 
-            engine = ExecutionEngine()
+            engine = init_execution_engine()
             load_recommendations(engine)
             # Reset interpreter state by re-executing everything. This is
             # necessary because at this point in the original process, the
@@ -234,14 +152,12 @@ temp_schema = "temp"
 get_config().omop.db_result_schema = temp_schema
 
 from execution_engine.clients import omopdb  # noqa
-from execution_engine.execution_engine import ExecutionEngine  # noqa
+from init import init_execution_engine, load_recommendations
 
-engine = ExecutionEngine()
+engine = init_execution_engine()
 
 
-recommendations: List[Any] = (
-    []
-)  # load_recommendations(engine) TODO: use this to load only once
+recommendations: List[Any] = load_recommendations(engine)
 
 
 def apply_recommendations():
@@ -253,8 +169,6 @@ def apply_recommendations():
     for intermediate results and atomically transfer everything to the
     actual result schema at the end of the process.
     """
-    # HACK(jmoringe): until restoring from database is fixed
-    recommendations = load_recommendations(engine)
 
     start_datetime = settings.start_time
     end_datetime = pendulum.now()

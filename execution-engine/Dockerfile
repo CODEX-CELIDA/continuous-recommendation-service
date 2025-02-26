@@ -24,6 +24,7 @@ RUN useradd -m user
 COPY --from=repos --chown=user /home/user/ee-addons/__init__.py             /home/user/apply-recommendations/digipod/
 COPY --from=repos --chown=user /home/user/ee-addons/concepts.py             /home/user/apply-recommendations/digipod/
 COPY --from=repos --chown=user /home/user/ee-addons/criterion               /home/user/apply-recommendations/digipod/criterion
+COPY --from=repos --chown=user /home/user/ee-addons/converter               /home/user/apply-recommendations/digipod/converter
 COPY --from=repos --chown=user /home/user/ee-addons/recommendation          /home/user/apply-recommendations/digipod/recommendation
 COPY --from=repos --chown=user /home/user/ee-addons/terminology             /home/user/apply-recommendations/digipod/terminology
 
