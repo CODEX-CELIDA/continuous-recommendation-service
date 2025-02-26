@@ -1,39 +1,39 @@
-FROM debian:stable AS stage
+# Stage 1: System dependencies (rarely changes)
+FROM debian:stable AS base
+RUN apt-get update --assume-yes \
+    && apt-get install --assume-yes python3-full python3-dev gcc curl git \
+    && apt-get clean
 
-RUN apt-get update --assume-yes       \
-  && apt-get install --assume-yes git
+# Stage 2: Git repositories (changes frequently)
+FROM base AS repos
 
 RUN useradd -m user
-
 USER user
 WORKDIR /home/user
 
 RUN git clone https://github.com/codex-celida/execution-engine
-
 RUN git clone https://github.com/DigiPOD/ee-addons.git
 
-FROM debian:stable
+# Stage 3: Final image
+FROM base
 
 ARG FHIR_BASE_URL
 
-# TODO(jmoringe): staging container for python3-dev and gcc?
-RUN apt-get update --assume-yes                                \
-  && apt-get install --assume-yes python3-full python3-dev gcc \
-  && apt-get clean
-
 RUN useradd -m user
 
-COPY --from=stage --chown=user /home/user/ee-addons/__init__.py             /home/user/apply-recommendations/digipod/
-COPY --from=stage --chown=user /home/user/ee-addons/concepts.py             /home/user/apply-recommendations/digipod/
-COPY --from=stage --chown=user /home/user/ee-addons/criterion               /home/user/apply-recommendations/digipod/criterion
-COPY --from=stage --chown=user /home/user/ee-addons/recommendation          /home/user/apply-recommendations/digipod/recommendation
-COPY --from=stage --chown=user /home/user/ee-addons/terminology             /home/user/apply-recommendations/digipod/terminology
+COPY --from=repos --chown=user /home/user/ee-addons/__init__.py             /home/user/apply-recommendations/digipod/
+COPY --from=repos --chown=user /home/user/ee-addons/concepts.py             /home/user/apply-recommendations/digipod/
+COPY --from=repos --chown=user /home/user/ee-addons/criterion               /home/user/apply-recommendations/digipod/criterion
+COPY --from=repos --chown=user /home/user/ee-addons/recommendation          /home/user/apply-recommendations/digipod/recommendation
+COPY --from=repos --chown=user /home/user/ee-addons/terminology             /home/user/apply-recommendations/digipod/terminology
 
-COPY --from=stage --chown=user /home/user/execution-engine/requirements.txt /home/user/apply-recommendations/
-COPY --from=stage --chown=user /home/user/execution-engine/setup.py         /home/user/apply-recommendations/
-COPY --from=stage --chown=user /home/user/execution-engine/execution_engine /home/user/apply-recommendations/execution_engine
+COPY --from=repos --chown=user /home/user/execution-engine/requirements.txt /home/user/apply-recommendations/
+COPY --from=repos --chown=user /home/user/execution-engine/setup.py         /home/user/apply-recommendations/
+COPY --from=repos --chown=user /home/user/execution-engine/execution_engine /home/user/apply-recommendations/execution_engine
+
 COPY              --chown=user apply_recommendations.py                     /home/user/apply-recommendations/
 COPY              --chown=user config.py                                    /home/user/apply-recommendations/
+COPY              --chown=user init.py                                      /home/user/apply-recommendations/
 
 USER user
 

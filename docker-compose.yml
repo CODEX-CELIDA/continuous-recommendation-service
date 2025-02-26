@@ -1,11 +1,11 @@
-version: '2.1' # '2.21'
-
 services:
   recommendation-server:
     #build: recommendation-server
-    image: glichtner/celida-recommendation-server
+    image: glichtner/celida-recommendation-server:main
     environment:
-      GH_REPOSITORY: https://github.com/CODEX-CELIDA/celida-recommendations
+      GH_REPOSITORY: https://github.com/DigiPOD/POD-fhir-recommendations
+      GIT_USERNAME: ${GIT_USERNAME:?GIT_USERNAME environment variable is required}
+      GIT_TOKEN: ${GIT_TOKEN:?GIT_TOKEN environment variable is required}
     healthcheck:
         test: ["CMD", "curl", "-f", "http://localhost:80/fhir/version-history"]
         #start_period: 120s
@@ -22,6 +22,9 @@ services:
     depends_on:
       recommendation-server:
         condition: service_healthy
+    environment:
+      no_proxy: recommendation-server,localhost,127.0.0.1
+      NO_PROXY: recommendation-server,localhost,127.0.0.1
     volumes:
       - type: bind
         source: ./apply_recommendations.env
@@ -33,3 +36,12 @@ services:
         read_only: true
     ports:
       - "55555:55555" # trigger execution run via arbitrary POST request
+
+ # This service is only used to rebuild the git repos stage
+  execution-engine-repos:
+    build:
+      context: execution-engine
+      target: repos # Use the stage name from your Dockerfile
+    image: execution-engine-repos:latest
+    profiles:
+      - repos-only # Prevents this from starting with normal docker-compose up
