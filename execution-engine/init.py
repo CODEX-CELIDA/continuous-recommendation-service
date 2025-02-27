@@ -1,9 +1,26 @@
+import inspect
 import logging
-from typing import Any, OrderedDict
+from types import ModuleType
+from typing import Any, Generator, OrderedDict, Type
 
 from config import RecommendationSet, Settings
 
 settings = Settings()  # Settings for this script
+
+
+def iterate_module_classes(module: ModuleType) -> Generator[Type, None, None]:
+    """
+    Yields all classes listed in the `__all__` attribute of a module.
+
+    :param module: The module from which to import classes.
+    :return: A generator yielding classes defined in the module's `__all__` list.
+    """
+
+    if hasattr(module, "__all__"):
+        for class_name in module.__all__:
+            cls = getattr(module, class_name, None)
+            if inspect.isclass(cls):
+                yield cls
 
 
 def init_execution_engine():
@@ -17,28 +34,30 @@ def init_execution_engine():
 
     standard_vocabulary.register(DigiPOD)
 
-    from digipod.converter.age import AgeConverter
-    from digipod.converter.condition import DigiPODConditionCharacteristic
-    from digipod.converter.evaluation_procedure import (
-        AssessmentCharacteristicConverter,
-        OtherActionConverter,
-        ProcedureWithExplicitContextConverter,
-    )
-    from digipod.converter.time_from_event import SurgicalOperationDate
-    from digipod.criterion.patients import AgeLimitPatient
-
-    register_criterion_class("AgeLimitPatient", AgeLimitPatient)
+    import digipod.converter.action
+    import digipod.converter.characteristic
+    import digipod.converter.time_from_event
+    import digipod.criterion
 
     builder = default_execution_engine_builder()
 
-    builder.prepend_characteristic_converter(AgeConverter)
-    builder.prepend_characteristic_converter(AssessmentCharacteristicConverter)
-    builder.prepend_characteristic_converter(ProcedureWithExplicitContextConverter)
-    builder.prepend_characteristic_converter(DigiPODConditionCharacteristic)
+    logging.getLogger().setLevel(logging.DEBUG)
 
-    builder.prepend_action_converter(OtherActionConverter)
+    for cls in iterate_module_classes(digipod.criterion):
+        logging.info(f'Importing criterion class "{cls.__name__}"')
+        register_criterion_class(cls.__name__, cls)
 
-    builder.append_time_from_event_converter(SurgicalOperationDate)
+    for cls in iterate_module_classes(digipod.converter.characteristic):
+        logging.info(f'Importing characteristic converter "{cls.__name__}"')
+        builder.prepend_characteristic_converter(cls)
+
+    for cls in iterate_module_classes(digipod.converter.action):
+        logging.info(f'Importing action converter "{cls.__name__}"')
+        builder.prepend_action_converter(cls)
+
+    for cls in iterate_module_classes(digipod.converter.time_from_event):
+        logging.info(f'Importing timeFromEvent converter "{cls.__name__}"')
+        builder.append_time_from_event_converter(cls)
 
     # Build the ExecutionEngine
     engine = builder.build()
