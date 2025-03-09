@@ -41,8 +41,6 @@ def init_execution_engine():
 
     builder = default_execution_engine_builder()
 
-    logging.getLogger().setLevel(logging.DEBUG)
-
     for cls in iterate_module_classes(digipod.criterion):
         logging.info(f'Importing criterion class "{cls.__name__}"')
         register_criterion_class(cls.__name__, cls)
@@ -123,6 +121,8 @@ def load_recommendations_for_digipod(
     import digipod.recommendation.recommendation_0_2 as r02
     import digipod.recommendation.recommendation_2_1 as r21
     import digipod.recommendation.recommendation_3_2 as r32
+    import digipod.recommendation.recommendation_4_1 as r41
+    import digipod.recommendation.recommendation_4_2 as r42
 
     recommendation_package_version = "latest"
     base_url = "https://fhir.charite.de/digipod/"
@@ -136,8 +136,8 @@ def load_recommendations_for_digipod(
 
     # priority
     # urls["4.1"] = "PlanDefinition/RecCollPreoperativeRFAssessmentAndOptimization"
-    # urls["4.3."] = None
     # urls["4.2"] = "PlanDefinition/RecCollShareRFOfOlderAdultsPreOPAndRegisterPreventiveStrategies"
+    # urls["4.3"] = None
 
     # unknown
     # urls["3.2"] = "PlanDefinition/RecCollBalanceBenefitsAgainstSideEffectsWhenUsingDexmedetomidine"
@@ -154,6 +154,8 @@ def load_recommendations_for_digipod(
         r02.rec_0_2_Delirium_Screening_double,
         r21.RecCollCheckRFAdultSurgicalPatientsPreoperatively,
         r32.RecCollCheckRFAdultSurgicalPatientsPreoperatively,
+        r41.recommendation,
+        r42.recommendation,
     ]
 
     for rec_no, recommendation_url in urls.items():
