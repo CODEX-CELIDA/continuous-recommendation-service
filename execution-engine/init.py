@@ -29,7 +29,6 @@ def init_execution_engine():
     """
     from digipod.terminology.vocabulary import DigiPOD
     from execution_engine.builder import default_execution_engine_builder
-    from execution_engine.omop.criterion.factory import register_criterion_class
     from execution_engine.omop.vocabulary import standard_vocabulary
 
     standard_vocabulary.register(DigiPOD)
@@ -40,10 +39,6 @@ def init_execution_engine():
     import digipod.criterion
 
     builder = default_execution_engine_builder()
-
-    for cls in iterate_module_classes(digipod.criterion):
-        logging.info(f'Importing criterion class "{cls.__name__}"')
-        register_criterion_class(cls.__name__, cls)
 
     for cls in iterate_module_classes(digipod.converter.characteristic):
         logging.info(f'Importing characteristic converter "{cls.__name__}"')
@@ -123,6 +118,7 @@ def load_recommendations_for_digipod(
     import digipod.recommendation.recommendation_3_2 as r32
     import digipod.recommendation.recommendation_4_1 as r41
     import digipod.recommendation.recommendation_4_2 as r42
+    import digipod.recommendation.recommendation_4_3 as r43
 
     recommendation_package_version = "latest"
     base_url = "https://fhir.charite.de/digipod/"
@@ -132,15 +128,15 @@ def load_recommendations_for_digipod(
     # urls["0.1"] = "PlanDefinition/RecCollPreoperativeDeliriumScreening"
     # urls["0.2"] = "PlanDefinition/RecCollDeliriumScreeningPostoperatively"
     # urls["2.1"] = "PlanDefinition/RecCollCheckRFAdultSurgicalPatientsPreoperatively"
-    # urls["3.1"] = "PlanDefinition/RecCollAdultSurgicalPatNoSpecProphylacticDrugForPOD"
+    # urls["3.2"] = "PlanDefinition/RecCollProphylacticDexAdministrationAfterBalancingBenefitsVSSE"
 
     # priority
     # urls["4.1"] = "PlanDefinition/RecCollPreoperativeRFAssessmentAndOptimization"
     # urls["4.2"] = "PlanDefinition/RecCollShareRFOfOlderAdultsPreOPAndRegisterPreventiveStrategies"
-    # urls["4.3"] = None
+    # urls["4.3"] = "PlanDefinition/RecCollBundleOfNonPharmaMeasuresPostOPInAdultsAtRiskForPOD"
 
     # unknown
-    # urls["3.2"] = "PlanDefinition/RecCollBalanceBenefitsAgainstSideEffectsWhenUsingDexmedetomidine"
+    # urls["3.1"] = "PlanDefinition/RecCollAdultSurgicalPatNoSpecProphylacticDrugForPOD"
     # urls["3.3"] = "PlanDefinition/RecCollAdultSurgicalPatPreOrIntraOPNoSpecSurgeryOrAnesthesiaType"
     # urls["3.4"] = "PlanDefinition/RecCollAdultSurgicalPatPreOrIntraOPNoSpecificBiomarker"
     # urls["5.1"] = "PlanDefinition/RecCollIntraoperativeEEGMonitoringDepth"
@@ -153,9 +149,10 @@ def load_recommendations_for_digipod(
         r02.rec_0_2_Delirium_Screening_single,
         r02.rec_0_2_Delirium_Screening_double,
         r21.RecCollCheckRFAdultSurgicalPatientsPreoperatively,
-        r32.RecCollCheckRFAdultSurgicalPatientsPreoperatively,
+        r32.recommendation,
         r41.recommendation,
         r42.recommendation,
+        r43.recommendation,
     ]
 
     for rec_no, recommendation_url in urls.items():
@@ -176,8 +173,8 @@ def load_recommendations_for_digipod(
 
 def load_recommendations(engine: Any):
     """
-    Load recommendations into engine, either CELIDA recommandetation
-    from a recommendaion server or hardcoded DigiPOD recommendataions
+    Load recommendations into engine, either CELIDA recommendation
+    from a recommendation server or hardcoded DigiPOD recommendations
     from the ee_addons package.
     """
     if settings.recommendation_set == RecommendationSet.celida:
