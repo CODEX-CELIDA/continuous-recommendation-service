@@ -69,7 +69,7 @@ logging.getLogger().setLevel(logging.INFO)
 settings = Settings()  # Settings for this script
 
 # enable multiprocessing with all available cores
-update_config(multiprocessing_use=True, multiprocessing_pool_size=-1)
+# update_config(multiprocessing_use=True, multiprocessing_pool_size=-1)
 
 result_schema = get_config().omop.db_result_schema
 
@@ -169,9 +169,11 @@ def apply_recommendations():
     for intermediate results and atomically transfer everything to the
     actual result schema at the end of the process.
     """
+    process_start_time = time.time()
 
     start_datetime = settings.start_time
-    end_datetime = pendulum.now()
+    end_datetime = pendulum.now().add(months=6)
+
     logging.info(
         f"Applying recommendations for period {start_datetime} - {end_datetime}"
     )
@@ -235,6 +237,11 @@ def apply_recommendations():
             #            "temp_table": f"{temp_schema}.{table}",
             #        })
     logging.info("Transfer finished")
+
+    process_end_time = time.time()
+    runtime_seconds = process_end_time - process_start_time
+
+    logging.info(f"Total runtime: {runtime_seconds:.2f} seconds")
 
 
 def run_with_time_based_trigger(interval: pendulum.Duration):
