@@ -146,7 +146,6 @@ def load_recommendations_for_digipod(
 
     recommendations = [
         r01.rec_0_1_Delirium_Screening,
-        r02.rec_0_2_Delirium_Screening_single,
         r02.rec_0_2_Delirium_Screening_double,
         r21.RecCollCheckRFAdultSurgicalPatientsPreoperatively,
         r32.recommendation,
