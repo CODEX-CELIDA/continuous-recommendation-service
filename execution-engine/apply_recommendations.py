@@ -172,7 +172,7 @@ def apply_recommendations():
     process_start_time = time.time()
 
     start_datetime = settings.start_time
-    end_datetime = pendulum.now().add(months=6)
+    end_datetime = pendulum.now()
 
     logging.info(
         f"Applying recommendations for period {start_datetime} - {end_datetime}"
@@ -190,10 +190,16 @@ def apply_recommendations():
             connection.execute(
                 text(f"TRUNCATE TABLE {temp_schema}.{table} CASCADE;")
             )  # nosec
-            # TODO(jmoringe): is the following really not possible?
-            # connection.execute(
-            #    text("TRUNCATE TABLE :table CASCADE;"),
-            #    {"table": f"{temp_schema}.{table}"})
+        # Now reset the sequence
+        connection.execute(
+            text(
+                f"ALTER SEQUENCE {temp_schema}.result_interval_result_id_seq RESTART WITH 1;"
+            )
+        )  # nosec
+        # TODO(jmoringe): is the following really not possible?
+        # connection.execute(
+        #    text("TRUNCATE TABLE :table CASCADE;"),
+        #    {"table": f"{temp_schema}.{table}"})
     # Run the execution engine. Results go into the temporary schema.
     for recommendation in recommendations:
         engine.execute(
